@@ -1,0 +1,11 @@
+412ff89bb9ede4b6f0ae1ce90d985a57 *DESCRIPTION
+5d0c881b6d262a6580cc2e20ba6c838c *NAMESPACE
+dad9eb56437bb09ca728b25ee9740bad *R/MetSizeR.R
+a78ca2b0f0ef7e28c53cab9008f851ff *data/nmr_spectra.rda
+3fc3aa43858e5966511b049c4ab3e7de *inst/doc/MetSizeR.pdf
+203cc0915ee1f325b220775c76d482bf *inst/doc/MetSizeR.rnw.sav
+f50363df97bd202cc99393ae2627463b *inst/extdata/cover.jpg
+6630223ab01e54311d20ffdfedcd6432 *inst/extdata/nmr_spectra.txt
+28c867df6eb320e7b0beb8db48a1d356 *man/MetSizeR-package.Rd
+41f50a19c1eaba956f8ff426874c2722 *man/MetSizeR.Rd
+103aef822ead370b30e783b50417083c *man/nmr_spectra.Rd
