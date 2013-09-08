@@ -1,6 +1,8 @@
+
 MetSizeR <-
 function()
 {
+  options(guiToolkit="RGtk2") 
   #################################################################################### 
   # function to scale covariates to lie between 0 and 1 for stability                                                               #
   ####################################################################################
@@ -54,7 +56,7 @@ function()
     n<-n1+n2
     if((mod[1]==model)|(mod[2]==model))
     {
-      sig<-rigamma(1,alpha.sigma,beta.sigma)
+      sig<-1/rgamma(1,alpha.sigma,beta.sigma)
       if(mod[1]==model)
       {
         u<-rmvnorm(n,Zeroq,Iq)

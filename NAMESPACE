@@ -1,14 +1,16 @@
 # Default NAMESPACE created by R
 # Remove the previous line if you edit this file
 
+#' @export MetSizeR
+
 # Export all names
 exportPattern(".")
 
 # Import all packages listed as Imports or Depends
 import(
-  gWidgets,
+  mvtnorm,
+  MetabolAnalyze,
   cairoDevice,
-  pscl,
-  gtools,
-  MetabolAnalyze
+  gWidgets, 
+  gWidgetsRGtk2
 )

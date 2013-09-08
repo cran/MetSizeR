@@ -1,9 +1,9 @@
 \name{nmr_spectra}
-\Rdversion{0.99}
+\Rdversion{1.1}
 \alias{nmr_spectra}
 \docType{data}
 \title{
-NMR metabolomic spectra from urine samples of 18 mice.
+NMR Metabolomic Spectra from Urine Samples of Eighten Mice
 }
 \description{
 NMR metabolomic spectra from urine samples of 18 mice. Each spectrum has 189 spectral bins, measured in parts per million (ppm). Covariate associated with the mice was also recorded: the weight. 

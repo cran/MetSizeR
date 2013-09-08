@@ -1,5 +1,5 @@
 \name{MetSizeR}
-\Rdversion{0.99}
+\Rdversion{1.1}
 \alias{MetSizeR}
 \title{MetSizeR GUI 
 }
@@ -46,16 +46,13 @@ MetSizeR()
 }
 
 \author{
-Gift Nyamundanda \email{gift.nyamundanda@ucd.ie}, Isobel Claire Gormley, Yue Fan, William M Gallagher, Lorraine Brennan
+Gift Nyamundanda \email{gnyamundanda@gmail.com}, Isobel Claire Gormley, Yue Fan, William M Gallagher, Lorraine Brennan
 }
 \note{
 MetSizeR is built upon gWidgets package. Make sure gWidgets package is properly installed.
 }
 
 \examples{
-
-\dontrun{
 MetSizeR()
-}
 }
 
