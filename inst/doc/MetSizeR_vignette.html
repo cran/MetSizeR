@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<meta name="author" content="Kate Finucane, Gift Nyamundanda, Isobel Claire Gormley," />
+<meta name="author" content="Yue Fan, William M Gallagher, and Lorraine Brennan" />
+
+
+<title>MetSizeR Handbook</title>
+
+<script src="data:application/javascript;base64,Ly8gUGFuZG9jIDIuOSBhZGRzIGF0dHJpYnV0ZXMgb24gYm90aCBoZWFkZXIgYW5kIGRpdi4gV2UgcmVtb3ZlIHRoZSBmb3JtZXIgKHRvCi8vIGJlIGNvbXBhdGlibGUgd2l0aCB0aGUgYmVoYXZpb3Igb2YgUGFuZG9jIDwgMi44KS4KZG9jdW1lbnQuYWRkRXZlbnRMaXN0ZW5lcignRE9NQ29udGVudExvYWRlZCcsIGZ1bmN0aW9uKGUpIHsKICB2YXIgaHMgPSBkb2N1bWVudC5xdWVyeVNlbGVjdG9yQWxsKCJkaXYuc2VjdGlvbltjbGFzcyo9J2xldmVsJ10gPiA6Zmlyc3QtY2hpbGQiKTsKICB2YXIgaSwgaCwgYTsKICBmb3IgKGkgPSAwOyBpIDwgaHMubGVuZ3RoOyBpKyspIHsKICAgIGggPSBoc1tpXTsKICAgIGlmICghL15oWzEtNl0kL2kudGVzdChoLnRhZ05hbWUpKSBjb250aW51ZTsgIC8vIGl0IHNob3VsZCBiZSBhIGhlYWRlciBoMS1oNgogICAgYSA9IGguYXR0cmlidXRlczsKICAgIHdoaWxlIChhLmxlbmd0aCA+IDApIGgucmVtb3ZlQXR0cmlidXRlKGFbMF0ubmFtZSk7CiAgfQp9KTsK"></script>
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    for (var j = 0; j < rules.length; j++) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") continue;
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') continue;
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<link rel="stylesheet" href="data:text/css,body%20%7B%0Abackground%2Dcolor%3A%20%23fff%3B%0Amargin%3A%201em%20auto%3B%0Amax%2Dwidth%3A%20700px%3B%0Aoverflow%3A%20visible%3B%0Apadding%2Dleft%3A%202em%3B%0Apadding%2Dright%3A%202em%3B%0Afont%2Dfamily%3A%20%22Open%20Sans%22%2C%20%22Helvetica%20Neue%22%2C%20Helvetica%2C%20Arial%2C%20sans%2Dserif%3B%0Afont%2Dsize%3A%2014px%3B%0Aline%2Dheight%3A%201%2E35%3B%0A%7D%0A%23TOC%20%7B%0Aclear%3A%20both%3B%0Amargin%3A%200%200%2010px%2010px%3B%0Apadding%3A%204px%3B%0Awidth%3A%20400px%3B%0Aborder%3A%201px%20solid%20%23CCCCCC%3B%0Aborder%2Dradius%3A%205px%3B%0Abackground%2Dcolor%3A%20%23f6f6f6%3B%0Afont%2Dsize%3A%2013px%3B%0Aline%2Dheight%3A%201%2E3%3B%0A%7D%0A%23TOC%20%2Etoctitle%20%7B%0Afont%2Dweight%3A%20bold%3B%0Afont%2Dsize%3A%2015px%3B%0Amargin%2Dleft%3A%205px%3B%0A%7D%0A%23TOC%20ul%20%7B%0Apadding%2Dleft%3A%2040px%3B%0Amargin%2Dleft%3A%20%2D1%2E5em%3B%0Amargin%2Dtop%3A%205px%3B%0Amargin%2Dbottom%3A%205px%3B%0A%7D%0A%23TOC%20ul%20ul%20%7B%0Amargin%2Dleft%3A%20%2D2em%3B%0A%7D%0A%23TOC%20li%20%7B%0Aline%2Dheight%3A%2016px%3B%0A%7D%0Atable%20%7B%0Amargin%3A%201em%20auto%3B%0Aborder%2Dwidth%3A%201px%3B%0Aborder%2Dcolor%3A%20%23DDDDDD%3B%0Aborder%2Dstyle%3A%20outset%3B%0Aborder%2Dcollapse%3A%20collapse%3B%0A%7D%0Atable%20th%20%7B%0Aborder%2Dwidth%3A%202px%3B%0Apadding%3A%205px%3B%0Aborder%2Dstyle%3A%20inset%3B%0A%7D%0Atable%20td%20%7B%0Aborder%2Dwidth%3A%201px%3B%0Aborder%2Dstyle%3A%20inset%3B%0Aline%2Dheight%3A%2018px%3B%0Apadding%3A%205px%205px%3B%0A%7D%0Atable%2C%20table%20th%2C%20table%20td%20%7B%0Aborder%2Dleft%2Dstyle%3A%20none%3B%0Aborder%2Dright%2Dstyle%3A%20none%3B%0A%7D%0Atable%20thead%2C%20table%20tr%2Eeven%20%7B%0Abackground%2Dcolor%3A%20%23f7f7f7%3B%0A%7D%0Ap%20%7B%0Amargin%3A%200%2E5em%200%3B%0A%7D%0Ablockquote%20%7B%0Abackground%2Dcolor%3A%20%23f6f6f6%3B%0Apadding%3A%200%2E25em%200%2E75em%3B%0A%7D%0Ahr%20%7B%0Aborder%2Dstyle%3A%20solid%3B%0Aborder%3A%20none%3B%0Aborder%2Dtop%3A%201px%20solid%20%23777%3B%0Amargin%3A%2028px%200%3B%0A%7D%0Adl%20%7B%0Amargin%2Dleft%3A%200%3B%0A%7D%0Adl%20dd%20%7B%0Amargin%2Dbottom%3A%2013px%3B%0Amargin%2Dleft%3A%2013px%3B%0A%7D%0Adl%20dt%20%7B%0Afont%2Dweight%3A%20bold%3B%0A%7D%0Aul%20%7B%0Amargin%2Dtop%3A%200%3B%0A%7D%0Aul%20li%20%7B%0Alist%2Dstyle%3A%20circle%20outside%3B%0A%7D%0Aul%20ul%20%7B%0Amargin%2Dbottom%3A%200%3B%0A%7D%0Apre%2C%20code%20%7B%0Abackground%2Dcolor%3A%20%23f7f7f7%3B%0Aborder%2Dradius%3A%203px%3B%0Acolor%3A%20%23333%3B%0Awhite%2Dspace%3A%20pre%2Dwrap%3B%20%0A%7D%0Apre%20%7B%0Aborder%2Dradius%3A%203px%3B%0Amargin%3A%205px%200px%2010px%200px%3B%0Apadding%3A%2010px%3B%0A%7D%0Apre%3Anot%28%5Bclass%5D%29%20%7B%0Abackground%2Dcolor%3A%20%23f7f7f7%3B%0A%7D%0Acode%20%7B%0Afont%2Dfamily%3A%20Consolas%2C%20Monaco%2C%20%27Courier%20New%27%2C%20monospace%3B%0Afont%2Dsize%3A%2085%25%3B%0A%7D%0Ap%20%3E%20code%2C%20li%20%3E%20code%20%7B%0Apadding%3A%202px%200px%3B%0A%7D%0Adiv%2Efigure%20%7B%0Atext%2Dalign%3A%20center%3B%0A%7D%0Aimg%20%7B%0Abackground%2Dcolor%3A%20%23FFFFFF%3B%0Apadding%3A%202px%3B%0Aborder%3A%201px%20solid%20%23DDDDDD%3B%0Aborder%2Dradius%3A%203px%3B%0Aborder%3A%201px%20solid%20%23CCCCCC%3B%0Amargin%3A%200%205px%3B%0A%7D%0Ah1%20%7B%0Amargin%2Dtop%3A%200%3B%0Afont%2Dsize%3A%2035px%3B%0Aline%2Dheight%3A%2040px%3B%0A%7D%0Ah2%20%7B%0Aborder%2Dbottom%3A%204px%20solid%20%23f7f7f7%3B%0Apadding%2Dtop%3A%2010px%3B%0Apadding%2Dbottom%3A%202px%3B%0Afont%2Dsize%3A%20145%25%3B%0A%7D%0Ah3%20%7B%0Aborder%2Dbottom%3A%202px%20solid%20%23f7f7f7%3B%0Apadding%2Dtop%3A%2010px%3B%0Afont%2Dsize%3A%20120%25%3B%0A%7D%0Ah4%20%7B%0Aborder%2Dbottom%3A%201px%20solid%20%23f7f7f7%3B%0Amargin%2Dleft%3A%208px%3B%0Afont%2Dsize%3A%20105%25%3B%0A%7D%0Ah5%2C%20h6%20%7B%0Aborder%2Dbottom%3A%201px%20solid%20%23ccc%3B%0Afont%2Dsize%3A%20105%25%3B%0A%7D%0Aa%20%7B%0Acolor%3A%20%230033dd%3B%0Atext%2Ddecoration%3A%20none%3B%0A%7D%0Aa%3Ahover%20%7B%0Acolor%3A%20%236666ff%3B%20%7D%0Aa%3Avisited%20%7B%0Acolor%3A%20%23800080%3B%20%7D%0Aa%3Avisited%3Ahover%20%7B%0Acolor%3A%20%23BB00BB%3B%20%7D%0Aa%5Bhref%5E%3D%22http%3A%22%5D%20%7B%0Atext%2Ddecoration%3A%20underline%3B%20%7D%0Aa%5Bhref%5E%3D%22https%3A%22%5D%20%7B%0Atext%2Ddecoration%3A%20underline%3B%20%7D%0A%0Acode%20%3E%20span%2Ekw%20%7B%20color%3A%20%23555%3B%20font%2Dweight%3A%20bold%3B%20%7D%20%0Acode%20%3E%20span%2Edt%20%7B%20color%3A%20%23902000%3B%20%7D%20%0Acode%20%3E%20span%2Edv%20%7B%20color%3A%20%2340a070%3B%20%7D%20%0Acode%20%3E%20span%2Ebn%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Efl%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Ech%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Est%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Eco%20%7B%20color%3A%20%23888888%3B%20font%2Dstyle%3A%20italic%3B%20%7D%20%0Acode%20%3E%20span%2Eot%20%7B%20color%3A%20%23007020%3B%20%7D%20%0Acode%20%3E%20span%2Eal%20%7B%20color%3A%20%23ff0000%3B%20font%2Dweight%3A%20bold%3B%20%7D%20%0Acode%20%3E%20span%2Efu%20%7B%20color%3A%20%23900%3B%20font%2Dweight%3A%20bold%3B%20%7D%20%0Acode%20%3E%20span%2Eer%20%7B%20color%3A%20%23a61717%3B%20background%2Dcolor%3A%20%23e3d2d2%3B%20%7D%20%0A" type="text/css" />
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">MetSizeR Handbook</h1>
+<h4 class="author">Kate Finucane, Gift Nyamundanda, Isobel Claire Gormley,</h4>
+<h4 class="author">Yue Fan, William M Gallagher, and Lorraine Brennan</h4>
+
+
+
+<div id="background" class="section level1">
+<h1>Background</h1>
+<p>Metabolomic studies involve the measurement of spectra from biological samples collected by researchers from their study cohort and the analysis of the resulting data. Often the goal of such studies is to identify metabolites which exhibit different behaviour in samples belonging to different groups in the study cohort. In this way they may act as an identifier of the particular feature being studied. Studies must utilise an adequate sample size such that the study achieves an appropriate statistical power to validate its conclusions. Clearly this sample size must be determined before commencing the study. In many biological fields an optimal sample size is determined by performing a pilot study, however, this is not always possible for metabolomic studies due to factors such as experiment cost, availability of resources, and availability of subjects. MetSizeR (Nyamundanda et al. 2013) offers a tool to estimate the sample size needed for an experiment to achieve a desired statistical power, without the use of pilot data or historical data.</p>
+<p>MetSizeR operates on the idea of an analysis informed approach, meaning that the sample size should be estimated for an experiment based on the method of analysis the researcher plans to use. There are currently two analysis methods supported by MetSizeR; probabilistic principal components analysis (PPCA), originally developed by Tipping and Bishop (1999), and probabilistic principal components and covariates analysis (PPCCA), developed by Nyamundanda et al. (2010). The application operates by using simulated data in the place of pilot data to perform its estimation. The data are simulated based on the analysis method the researcher plans to use, and the sample size which yields the desired false discovery rate (FDR) for the study is returned to the user.</p>
+<p>Full details of the MetSizeR algorithm can be found in Nyamundanda et al. (2013).</p>
+<p>A Shiny application is used as a graphic user interface (GUI) for the application, to encourage use in the field without the need for experience using R.</p>
+</div>
+<div id="package-functionality" class="section level1">
+<h1>Package Functionality</h1>
+<p>The MetSizeR package provides a R Shiny application which allows users to estimate the sample size required for their study to achieve a desired statistical power. The tool is built to estimate the sample size required for both targeted and untargeted metabolomic experiments. Sample size estimation is performed without the need for pilot data, however, if pilot data are available then these can be uploaded to the application to aid in the estimations. Several inputs are required by the user; it is expected that these inputs should be informed by the user’s own knowledge of their field. Additionally, where pilot data are present it is expected that these data have been sourced and treated appropriately in the context of the user’s research.</p>
+</div>
+<div id="installation-instructions" class="section level1">
+<h1>Installation Instructions</h1>
+<p>To install the MetSizeR package, the user should have the R software environment installed on their machine. To download, visit <a href="https://www.r-project.org/">the website for The R Project for Statistical Computing</a> and follow the instructions to download and install.</p>
+<p>When in R, the following command will allow the user to install the MetSizeR package:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">&quot;MetSizeR&quot;</span>)</span></code></pre></div>
+<p>Package dependencies will also be installed if they are not already installed on the user’s computer. These consist of the following:</p>
+<ul>
+<li>dplyr</li>
+<li>ggplot2</li>
+<li>MetabolAnalyze</li>
+<li>Rfast</li>
+<li>shiny</li>
+<li>shinythemes</li>
+<li>stats</li>
+<li>tools</li>
+<li>utils</li>
+<li>vroom</li>
+</ul>
+<p>Alternatively, MetSizeR can be downloaded and installed manually by the user if they so prefer by visiting <a href="https://CRAN.R-project.org/package=MetSizeR">its entry on The Comprehensive R Archive Network (CRAN)</a>.</p>
+</div>
+<div id="loading-the-application" class="section level1">
+<h1>Loading the Application</h1>
+<p>Once installed, the MetSizeR package can be loaded into the user’s current R session by the following command:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(MetSizeR)</span></code></pre></div>
+<p>The MetSizeR R package is designed to perform all functionality through the associated R Shiny application. The Shiny application can be launched by running the following command:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">MetSizeR</span>()</span></code></pre></div>
+<p>The application will then launch, either in the user’s external browser, a pop-up window, or in the viewer pane of the user’s R IDE. This depends on how the user has configured their own settings.</p>
+<p>Once the application has launched, the initial landing page is an <code>About</code> page which contains information about the package, its functionality, and references for the methods used within. Navigation through the application occurs through the navigation bar at the top of the page, with options <code>About</code>, <code>Sample Size Estimation</code>, and <code>Vary Proportion of Significant Spectral Bins</code> leading to the about page, the page on which to perform sample size estimation for a single experiment, and the page on which to estimate the sample size for varying proportions of significant bins or metabolites respectively.</p>
+</div>
+<div id="sample-size-estimation" class="section level1">
+<h1>Sample Size Estimation</h1>
+<p>The core functionality of MetSizeR is the ability to estimate the sample size required for a metabolomic experiment to achieve a desired statistical power. MetSizeR can perform this estimation for targeted or untargeted experiments, both for cases when pilot data are available or unavailable. Sample size estimation takes place based on the intended method of analysis in the experiment; at present the tool is available for PPCA or PPCCA. To navigate to the sample size estimation tool, select <code>Sample Size Estimation</code> on the navigation bar at the top of the page.</p>
+<div id="sample-size-estimation-in-the-absence-of-pilot-data" class="section level2">
+<h2>Sample Size Estimation in the Absence of Pilot Data</h2>
+<p>MetSizeR can estimate the sample size required for a study to achieve a desired statistical power even when pilot data are unavailable. In this case, the tool can be used for both targeted and untargeted analysis. The user must specify several parameters for the algorithm to use, given as follows. These are specified by selecting or inputting options on the sidebar located on the left side of the page.</p>
+<div id="inputs" class="section level3">
+<h3>Inputs</h3>
+<ul>
+<li>The intended type of analysis, either targeted or untargeted, which is selected by clicking the relevant button at the top of the input section.</li>
+<li>Whether pilot data are available. The default is unavailable, indicated by the blank <code>Are experimental pilot data available?</code> checkbox.</li>
+<li>The number of spectral bins (untargeted analysis) or the number of metabolites (targeted analysis). This is the number of variables, either bins or metabolites, which will be generated by the algorithm for each sample. This number should be typed in the box available, however, up and down arrows on the right side of the box can be use to adjust the number entered. For targeted analysis, metabolite numbers from 20 to 1000 are accepted, and for untargeted analysis, bin numbers from 50 to 3000 are accepted. Please note that the algorithm make take several minutes to run for larger numbers of bins.</li>
+<li>The proportion of significant bins (untargeted analysis) or the proportion of significant metabolites (targeted analysis). This is the proportion of the bins or metabolites present which the user expects should be statistically significant, and is generally expected to be less than 0.5. In the case where this proportion is unknown, there is a feature of the application which allows simultaneous estimations to be made for several proportions at once, which will be outlined later in this handbook. The proportion can be typed into the box available, with arrows on the right side of the box allowing adjustments.</li>
+<li>The model to be used in analysis, either PPCA or PPCCA, which must be selected by clicking the relevant button.
+<ul>
+<li>If PPCCA is the method of choice, two other options will appear, asking the user to specify the number of numeric and categorical covariates. If any categorical covariates are expected then the total number of levels present for all categorical covariates must also be input. These numbers can be typed into the relevant boxes, or adjusted using the arrows present on the right side of the boxes. Inputs containing zero to five numeric and zero to five categorical covariates are accepted. The maximum number of levels accepted is 50, with a minimum of two levels required.</li>
+</ul></li>
+<li>The target FDR, which is the FDR the researcher desires for their experiment. This is equivalent to <span class="math inline">\(1-power\)</span> of the study. This can be entered into the relevant box, either by typing or adjusting the value using the arrows.</li>
+<li>The sample size per group. The algorithm is based on an experimental set-up whereby samples originate from two groups to be compared. The minimum sample size to test for each group must be specified by the user. A minimum value of three samples per group is required. Please note that the ratio of samples per group will be fixed at the ratio given.</li>
+</ul>
+<p>Once the input values have been entered to the user’s specifications, the <code>Estimate Optimal Sample Size</code> button at the bottom of the sidebar must be clicked to start the MetSizeR process. Note that the process may take several minutes for larger numbers of bins. The user will know the algorithm is running as a notification will appear on the bottom right of the screen.</p>
+<p>When results are ready they will appear on the right side of the screen. A plot of FDR versus sample size will appear, showing the 90th, 50th, and 10th percentiles of the FDR values calculated for each sample size tested. The estimated optimal sample size will be indicated by a blue vertical line, and also in text in the legend of the plot. The target FDR is given by a black dotted line on the plot.</p>
+<p>Below the plot, results will be displayed in text. The estimated optimal sample size will be printed, along with the per-group breakdown of the sample sizes, in the same ratio as input by the researcher. There is an option to download the plot, by clicking the <code>Download Plot</code> button. The plot will then download to the location of choice on the user’s computer. There is also an option to view the exact values from the points on the plot by clicking the <code>Show values from plot?</code> checkbox. This opens a table showing the values of the 90th, 50th, and 10th percentiles of the FDR values calculated alongside the relevant sample size. The user can download these data as a CSV file by clicking the <code>Download Plot Data as .csv</code> button, which will download the data to the location of the user’s choosing.</p>
+<p>If the user wishes to change any of the inputs and re-run the algorithm, they can simply change the relevant inputs and click <code>Estimate Optimal Sample Size</code> once more, and the results will update. The user will know the algorithm is running as a notification will appear on the bottom right of the screen.</p>
+</div>
+</div>
+<div id="sample-size-estimation-using-pilot-data" class="section level2">
+<h2>Sample Size Estimation Using Pilot Data</h2>
+<p>If pilot data are available then MetSizeR can use this to aid its estimation of the optimal sample size required for the study to achieve a desired level of power. To estimate the sample size in this manner, navigate to the <code>Sample Size Estimation</code> page on the navigation bar at the top of the page. This page contains a sidebar on the left side which allows the user to input specifications of their planned study as well as upload pilot data. The following specifications are required from the user:</p>
+<div id="inputs-1" class="section level3">
+<h3>Inputs</h3>
+<ul>
+<li>The intended type of analysis, either targeted or untargeted, which is selected by clicking the relevant button at the top of the input section.</li>
+<li>Whether pilot data are available. To upload pilot data, select the <code>Are experimental pilot data available?</code> checkbox. This will open several options to the user. Firstly, the user must specify if their data file contains a header as the first row, if so click the <code>Does data contain a header?</code> checkbox. The option to upload data as a CSV file is then given. To select the data file, click <code>Browse</code>, navigate to the file’s location and select the file. A blue confirmation bar should appear under the file upload section, saying <code>Upload complete</code>, and the name of the file should appear in the box beside the <code>Browse</code> button.
+<ul>
+<li><strong>Data file specifications:</strong> Note that the uploaded data must be correctly formatted. The data should be in CSV format and the file should not exceed 5MB in size. If covariate data are included, this must be given in the first few columns before any spectral data. Categorical covariates should be included before numeric covariates, if applicable. For example, if a data set has one categorical covariate, two numeric covariates, and 150 spectral bins, then column one should be the categorical covariate, columns two and three the numeric covariates, and column four to 153 should contain the spectral data.</li>
+</ul></li>
+<li>The proportion of significant bins (untargeted analysis) or the proportion of significant metabolites (targeted analysis). This is the proportion of the bins or metabolites present which the user expects should be statistically significant, and is generally expected to be less than 0.5. The proportion can be typed into the box available, with arrows on the right side of the box allowing adjustments.</li>
+<li>The model to be used in analysis, either PPCA or PPCCA, which must be selected by clicking the relevant button.
+<ul>
+<li>If PPCCA is the method of choice, two other options will appear, asking the user to specify the number of numeric and categorical covariates. These numbers can be typed into the relevant boxes, or adjusted using the arrows present on the right hand side of the box. Inputs containing zero to five numeric and zero to five categorical covariates are accepted. The maximum number of levels accepted is 50, with a minimum of two levels required. Note that when pilot data are present there is no option to specify the number of levels present, as this will be gleaned from the pilot data uploaded.</li>
+</ul></li>
+<li>The target FDR, which is the FDR the researcher desires for their experiment. This is equivalent to <span class="math inline">\(1-power\)</span> of the study. This can be entered into the relevant box, either by typing or adjusting the value using the arrows.</li>
+<li>The sample size per group. The algorithm is based on an experimental set-up whereby samples originate from two groups to be compared. The minimum sample size to test for each group must be specified by the user. A minimum value of three samples per group is required. Please note that the ratio of samples per group will be `locked in’ at the ratio given.</li>
+</ul>
+<p>Note that the number of spectral bins (untargeted analysis) or metabolites (targeted analysis) does not need to be specified by the user when pilot data are present as this is read from the uploaded file. When the input values are correctly specified, the <code>Estimate Optimal Sample Size</code> button at the bottom of the sidebar must be clicked to start the MetSizeR process. Note that the process may take several minutes for larger data. The user will know the algorithm is running as a notification will appear on the bottom right of the screen.</p>
+<p>When results are ready they will appear on the right side of the screen. A plot of FDR versus sample size will appear, showing the 90th, 50th, and 10th percentiles of the FDR values calculated for each sample size tested. The estimated optimal sample size will be indicated by a blue vertical line, and also in text in the legend of the plot. The target FDR is given by a black dotted line on the plot.</p>
+<p>Below the plot, results will be displayed in text. The estimated optimal sample size will be printed, along with the per-group breakdown of the sample sizes, in the same ratio as input by the researcher. There is an option to download the plot, by clicking the <code>Download Plot</code> button. The plot will then download to the location of choice on the user’s computer. There is also an option to view the exact values from the points on the plot by clicking the <code>Show values from plot?</code> checkbox. This opens a table showing the values of the 90th, 50th, and 10th percentiles of the FDR values calculated alongside the relevant sample size. The user can download these data as a CSV file by clicking the <code>Download Plot Data as .csv</code> button, which will download the data to the location of the user’s choosing.</p>
+<p>If the user wishes to change any of the inputs and re-run the algorithm, they can simply change the relevant inputs and click <code>Estimate Optimal Sample Size</code> once more, and the results will update. The user will know the algorithm is running as a notification will appear on the bottom right of the screen.</p>
+</div>
+</div>
+<div id="varying-the-proportion-of-significant-metabolitesbins" class="section level2">
+<h2>Varying the Proportion of Significant Metabolites/Bins</h2>
+<p>If the user wishes to test different proportions of significant bins to find the optimal sample size, they can navigate to the <code>Vary Proportion of Significant Spectral Bins</code> tab on the navigation bar at the top of the page. Here, up to four different significance proportions can be tested for the same experimental design.</p>
+<p>First the user should specify whether they intend to perform targeted or untargeted analysis by selecting the applicable option at the top of the sidebar on the left of the page. There are then boxes on the sidebar where the user can enter up to four proportions. One proportion should be entered in each box. If less than four proportions are required, zero should be entered in the remaining boxes. The values can be input by either typing the proportion as a decimal, or using the arrows on the right of the boxes to change the values.</p>
+<p>The user must then also choose the number of spectral bins (untargeted analysis) or metabolites (targeted analysis) to test by typing the desired number into the relevant box or using the arrows. They must then select the desired model to use, either PPCA or PPCCA, by selecting the button for their chosen model. If PPCCA is selected, the number of numeric and categorical covariates must be specified, with the number of levels of any categorical variables entered also. The target FDR must then be specified, by typing in the desired value or using the arrows to select. Once the inputs are entered to the user’s specifications, the <code>Run MetSizeR for Varied Proportions</code> button should be clicked to start the process. Note that this process can take some time, especially for larger numbers of bins. A notification will appear on the bottom right of the screen, indicating that the algorithm is running. This process will usually be longer than the single sample size calculation performed on the <code>Sample Size Estimation</code> tab, as there are more calculations to be performed.</p>
+<p>When results are ready, one plot for each of the specified proportions will appear on the right side of the screen, along with a statement of their respective proportions. A download button is available for each plot which, when clicked, will allow the user to download the plot as a PNG file to the location of their choosing.</p>
+</div>
+</div>
+<div id="references" class="section level1">
+<h1>References</h1>
+<p>Nyamundanda, G., Brennan, L., &amp; Gormley, I. C. (2010). Probabilistic principal component analysis for metabolomic data. BMC Bioinformatics, 11(1), 571. <a href="https://doi.org/10.1186/1471-2105-11-571">https://doi.org/10.1186/1471-2105-11-571</a></p>
+<p>Nyamundanda, G., Gormley, I. C., Fan, Y., Gallagher, W. M., &amp; Brennan, L. (2013). MetSizeR: Selecting the optimal sample size for metabolomic studies using an analysis based approach. BMC Bioinformatics, 14(1), 338. <a href="https://doi.org/10.1186/1471-2105-14-338">https://doi.org/10.1186/1471-2105-14-338</a></p>
+<p>Tipping, M. E., &amp; Bishop, C. M. (1999). Probabilistic Principal Component Analysis. Journal of the Royal Statistical Society: Series B (Statistical Methodology), 61(3), 611–622. <a href="https://doi.org/10.1111/1467-9868.00196">https://doi.org/10.1111/1467-9868.00196</a></p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

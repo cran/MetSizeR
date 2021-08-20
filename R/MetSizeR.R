@@ -1,556 +1,1017 @@
+#' MetsizeR Launcher
+#'
+#' Launches the Shiny application for the MetsizeR functionality. The
+#' interactive application allows estimation of the sample size required for a
+#' metabolomic experiment to achieve a desired statistical power.
+#'
+#' @importFrom dplyr %>%
+#'
+#' @references G. Nyamundanda, I. C. Gormley, Y. Fan, W. M. Gallagher and L. Brennan, BMC Bioinformatics, 2013, 14, 338.
+#'
+#' @export
 
-MetSizeR <-
-function()
-{
-  options(guiToolkit="RGtk2") 
-  #################################################################################### 
-  # function to scale covariates to lie between 0 and 1 for stability                                                               #
-  ####################################################################################
-  standardize<-function(C)
-  {
-    for(i in 1:ncol(C))
-    {
-      rg<-range(C[,i])
-      C[,i]<-(C[,i]-min(C[,i]))/(rg[2] - rg[1])
-    } # end for
-    C
-  }
-  
-  #################################################################################### 
-  # function for simulating data using pilot data
-  ####################################################################################
-  sim.pilot.data<-function(n1,n2,p,Zerop,Ip,Zeroq,Iq,ZeroL,IL,ZeroL1,IL1,eta.sd,eta_sc.sd,sig,W,Alpha,mu,mod,model)
-  {
-    n<-n1+n2
-    if((mod[1]==model)|(mod[2]==model))
-    {
-      if(mod[1]==model)
-      { 
-        u<-rmvnorm(n,Zeroq,Iq)
-      }else{
-        C<-rmvnorm(n,ZeroL,IL)
-        C<-standardize(C)  		        ## Standardize covariates for stability
-        C<-rbind(rep(1,n), t(C))
-        u<-rmvnorm(n,Zeroq,Iq)+t(Alpha%*%C)
-      }#ifppca
-      x<-rmvnorm(n,Zerop,sig*Ip)+tcrossprod(u,W)+ matrix(mu, n, p, byrow=TRUE)
-    }else{
-      ## SV model on the errors     
-      eta.true<-rnorm(1,0,eta.sd)
-      
-      ## SV model on the scores
-      eta_sc.true<-c(rmvnorm(1, Zeroq, eta_sc.sd))
-      
-      ## DPPCA model
-      u<-rmvnorm(n,Zeroq,exp(eta_sc.true)*Iq)
-      x<-rmvnorm(n,Zerop,exp(eta.true)*Ip)+tcrossprod(u,W)
-    }#long
-    return(x)
-  }
-  
-  #################################################################################### 
-  # function for simulating data without pilot data
-  ####################################################################################
-  sim.pilot<-function(n1,n2,p,Zerop,Ip,q,Zeroq,Iq,ZeroL,IL,ZeroL1,IL1,eta.sd,eta_sc.sd,alpha.sigma,beta.sigma,mod,model,ao1,bo)
-  {
-    n<-n1+n2
-    if((mod[1]==model)|(mod[2]==model))
-    {
-      sig<-1/rgamma(1,alpha.sigma,beta.sigma)
-      if(mod[1]==model)
-      {
-        u<-rmvnorm(n,Zeroq,Iq)
-      }else{
-        Alpha<-rmvnorm(q,ZeroL1,3*IL1)
-        C<-rmvnorm(n,ZeroL,IL)
-        C<-standardize(C)			        ## Standardize covariates for stability
-        C<-rbind(rep(1, n), t(C))
-        u<-rmvnorm(n,Zeroq,Iq)+t(Alpha%*%C)
-      }#ifppca
-      v<-1/rgamma(q,ao1,bo)
-      W<-rmvnorm(p,Zeroq,v*Iq)
-      x<-rmvnorm(n,Zerop,sig*Ip)+tcrossprod(u,W)
-    }else{
-      
-      ## SV model on the errors
-      eta.true<-rnorm(1,0,eta.sd)
-      
-      ## SV model on the scores
-      eta_sc.true<-c(rmvnorm(1,Zeroq,eta_sc.sd))         
-      
-      ## DPPCA model
-      v<-1/rgamma(q,ao1,bo)
-      u<-rmvnorm(n,Zeroq,exp(eta_sc.true)*Iq)
-      W<-rmvnorm(p,Zeroq,v*Iq)
-      x<-rmvnorm(n,Zerop,exp(eta.true)*Ip)+tcrossprod(u,W)
-    }#long
-    return(x)
-  }
-  
-  #################################################################################### 
-  # function for sampling from the null distribution 
-  ####################################################################################
-  samp.dist<-function(T,S,TS,x,y,n11,n22,in1n2,nn2,cpcf)
-  {
-    for(t in 1:T)
-    {
-      yperm<-sample(y, replace=FALSE)
-      x1<-x[yperm==1,]
-      x2<-x[yperm==2,]
-      Sj<-sqrt(in1n2*(n11*diag(var(x1))+n22*diag(var(x2)))/nn2)  # FASTER!!!
-      S[,t]<-Sj+sort(Sj)[cpcf]                     ## corrected standard deviation
-      TS[,t]<-(colMeans(x1)-colMeans(x2))/S[,t]
-    }#t
-    return(list(S=S, TS=TS))
-  }
-  
-  #################################################################################### 
-  # function to see if a number is an integer
-  #################################################################################### 
-  is.wholenumber <- function(x, tol = .Machine$double.eps^0.5)  abs(x - round(x)) < tol
-  
-  #################################################################################### 
-  # function for estimating sample size 
-  ####################################################################################
-  metsize<-function(pilot=pilot, n1=4, n2=4, p=200, prop=0.25, covars=covars, ncovar=0, model="PPCA", plot.prop=FALSE, target.fdr= 0.05, Targeted=FALSE)
-  { 
-    mod<-c("PPCA", "PPCCA", "DPPCA")
-    if(prop>0.5) 
-    {
-      cat("Warning! The proportion of significant metabolites is usually expected to be less than 0.5.")
-    }
-    if(length(pilot)!=0)
-    {
-      if(mod[2]==model)
-      {
-        ncovar<-ncol(covars)
-        resppcca<-ppcca.metabol(pilot, covars, 2, 2, scale="unit")     
-        W<-resppcca$loadings
-        sig<-resppcca$sig
-        Alpha<-resppcca$coefficients 
-        mu<-colMeans(pilot)
-        p<-ncol(pilot)
-      }else{
-        pilot<-sweep(pilot, 2, colMeans(pilot), "-")
-        resppca<-ppca.metabol(pilot, 2, 2, scale="unit") 
-        W<-resppca$loadings
-        sig<-resppca$sig
-        mu<-colMeans(pilot)
-        p<-ncol(pilot)
-      }#ifcovars 
-    }#ifpilot
-    if(plot.prop==FALSE)
-    {
-      mprop<-c(prop)                       ## proportion of significant metabolites
-      mrange<-ceiling(mprop*p)                                 ## different number significant metabolites
-      mtry <- length(mrange)                         ## number of different m values
-      nprop.increment <- 1		           ## Sample size increments
-      sfactors<-(n1+n1)*nprop.increment  
-    }else{
-      mprop<-c(prop,seq(0.1,0.5,0.1))                       ## proportion of significant metabolites
-      mrange<-ceiling(mprop*p)                                 ## different number significant metabo
-      mtry <- length(mrange)                         ## number of different m values  
-      nprop.increment <- c(1,2,4,7)		           ## Sample size increments
-      sfactors<-(n1+n2)*nprop.increment                       ## four different sample sizes to be considered                        
-    }
-    
-    ## Setting up the initial values and the prior parameters
-    T<-20                                         ## number of permutations to estimate the sampling distribution.
-    Sim<-20  				              ## Number of pilot data sets simulated.
-    L<-ncovar                                     ## number of covariates
-    n<-n1+n2                                      ## sample size for pilot data
-    q<-2                                          ## dimension of the latent space
-    alpha.sigma<-ao<-5                                ## the scale parameter of the prior distribution of the variance.
-    beta.sigma<-2*(alpha.sigma-1)                 ## the shape parameter of the prior distribution of the variance. 
-    bo<-c(0.5*(ao-1),0.25*(ao-1))
-    ao1<-rep(ao,q)
-    n.increment = c(1:8)		              ## Sample size increments considered.
-    ntry = length(n.increment)                    ## number of different samples sizes to be considered.
-    
-    ## Storing statistics for each sample size
-    fdr50_sim = matrix(NA, ntry, 1)                    ## FDR values for each sample simulated from the PPCCA model
-    fdr90_sim = matrix(NA, ntry, 1)
-    fdr10_sim = matrix(NA, ntry, 1)
-    fdr_sim = matrix(NA, ntry, Sim)  
-    
-    ## Storing statistics for each m values
-    fdr50_prop = matrix(NA, mtry-1, length(sfactors))
-    fdr90_prop = matrix(NA, mtry-1, length(sfactors))
-    fdr10_prop = matrix(NA, mtry-1, length(sfactors))
-    Add<-array(NA, c(p,T,ntry))
-    TSstore<-array(NA, c(p,T,ntry))
-    
-    delta<-qnorm(0.99)   # Based on variance of underlying simulation model
-    if(length(pilot)!=0){delta<-qnorm(0.89)}
-    cf<-0.05
-    Zeroq<-rep(0,q) 
-    Iq<-diag(q)
-    Zerop<-rep(0,p)
-    Ip<-diag(p)
-    if(mod[2]==model){ZeroL<-rep(0,L); IL<-diag(L); ZeroL1<-rep(0,(L+1)); IL1<-diag(L+1)}
-    if(mod[3]==model){ phi.true<-0.8; v2.true<-0.1; eta.sd<-sqrt(v2.true/(1-phi.true^2))
-                       phi_sc.true<-rep(0.8,q); v2_sc.true<-rep(0.1,q)
-                       eta_sc.sd<-diag(sqrt(v2_sc.true/(1-phi_sc.true^2)))}
-    TS<-S<-matrix(NA,p,T) 
-    cpcf<-ceiling(p*cf)
-    for(m in 1:mtry)
-    {
-      pstat<-1-(mrange[m]/p)
-      ind <- matrix(FALSE, p, T)
-      pos <- sample(1:p, size=mrange[m])         ## sampling mrange[m] metabolites
-      ind[pos,] <- TRUE               ## matrix indicating truly significant and non significant metabolites
-      i<-0
-      for(k in 1:ntry)
-      {
-        n1star<-n1*n.increment[k]    ## sample size for treatment group 1
-        n2star<-n2*n.increment[k]    ## sample size for treatment group 2 
-        nstar<-n1star+n2star
-        in1n2<-1/n1star+1/n2star; n11<-n1star-1; n22<-n2star-1; nn2<-n1star+n2star-2
-        Add.sd<-sqrt(in1n2)
-        
-        y<-c(rep(1,n1star),rep(2,n2star))
-        if(m==1)               ## If influence of different proportion of significant metabolites is not of interest...  
-        {
-          for(s in 1:Sim)            ## assessing the effect of repeated simulations from the underlying model.
-          {
-            ## Simulating the pilot data
-            if(length(pilot)!=0)
-            {
-              x<-sim.pilot.data(n1star,n2star,p,Zerop,Ip,Zeroq,Iq,ZeroL,IL,ZeroL1,IL1,eta.sd,eta_sc.sd,sig,W,Alpha,mu,mod,model)
-            }else{
-              x<-sim.pilot(n1star,n2star,p,Zerop,Ip,q,Zeroq,Iq,ZeroL,IL,ZeroL1,IL1,eta.sd,eta_sc.sd,alpha.sigma,beta.sigma,mod,model,ao1,bo)
-            }
-            
-            ## Estimating the sampling distribution of the test statistic using permutations.
-            res.sampdist<-samp.dist(T,S,TS,x,y,n11,n22,in1n2,nn2,cpcf)
-            TS<-res.sampdist$TS
-            S<-res.sampdist$S
-            
-            ## Store the test statistics for the current sample size.
-            TSstore[,,k]<-TS
-            
-            ## calculating the shift in metabolites in grp 2
-            vars<-S/Add.sd
-            Add[,,k]<-delta/(vars*Add.sd)
-            
-            ## estimating the FDR
-            tsB<-TS
-            tsB[pos,] <- tsB[pos,] + Add[pos,,k]            ## Add an increment factor to the t.statistic values of the truly significant metabolites 
-            atsB <- abs(tsB) 
-            crit <- quantile(atsB, pstat)         ## identifying a cut-off point (m-th largest absolute value of the p TsB values)     
-            errors <- (colSums(atsB > crit & !ind))/(colSums(atsB > crit))        ## number of false positives 
-            fdr_sim[k,s] <- quantile(errors[!is.na(errors)], 0.5)      ## median FDR of the Tstar permutations
-          }#s
-          
-          ## assessing the effect of repeated simulations from the underlying model.
-          emp<-quantile(fdr_sim[k,], c(0.1,0.5,0.9))
-          fdr10_sim[k] <- emp[1]
-          fdr50_sim[k] <- emp[2]
-          fdr90_sim[k] <- emp[3]
-        }else{
-          ## assessing the effect of varying the proportion of truly significant metabolites (increasing m values) on four different sample sizes.
-          if(any(nprop.increment==n.increment[k]))
-          {
-            i<-i+1
-            ## estimating the FDR
-            tsB<-TSstore[,,k]
-            tsB[pos,] <- tsB[pos,] + Add[pos,,k]            ## adding a shift component to truly significant metabolites
-            atsB <- abs(tsB)
-            crit <- quantile(atsB, 1 - (mrange[m]/p))
-            errors <- (colSums(atsB > crit & !ind ))/(colSums(atsB > crit)) ## (number of false positives for Tstar permutations)/(number of metabolites declared significant for Tstar permutations)
-            emp<-quantile(errors[!is.na(errors)], c(0.1,0.5,0.9))
-            fdr10_prop[m-1,i] <- emp[1]
-            fdr50_prop[m-1,i] <- emp[2]          ## median FDR for Tstar permutations permutations
-            fdr90_prop[m-1,i] = emp[3]
-          }#if(any)     
-        }#if
-      }#k
-    }#m
-    
-    results_sim <- cbind(n.increment*n, fdr50_sim, fdr90_sim, fdr10_sim)
-    results_prop <- cbind(mprop[-1], fdr50_prop, fdr10_prop, fdr90_prop)
-    colnames(results_sim) <- c("sample size","fdr50_sim", "fdr90_sim", "fdr10_sim")
-    colnames(results_prop) <- c("prop", paste("fdr50_prop", sfactors, sep = "_"), paste("fdr10_prop", sfactors, sep = "_"), paste("fdr90_prop", sfactors, sep = "_"))
-    results_prop <- list(results_prop, sfactors)
-    names(results_prop) <- c("results_prop", "sample_sizes")
-    
-    ######################################### Determine the sample size at which the FDR line is equal to 0.05
-    opty <- rep(0, 2)
-    ind1 <- min(c(1:nrow(results_sim))[results_sim[,2]<0.05])
-    ind2 <- max(c(1:ind1)[results_sim[1:ind1,2]>0.05])
-    opty <- c(results_sim[ind1,2], results_sim[ind2,2])
-    optx <- c(results_sim[ind1,1], results_sim[ind2,1])
-    optres<-lm(opty~optx)
-    nhat <- round((target.fdr - optres$coef[1])/optres$coef[2])
-    if(is.na(nhat)){print("Sorry: an error has occurred. Please rerun the function."); stop()}
-    if(n1==n2)
-    {
-      if(is.wholenumber(nhat/2)){n1<-n2<-nhat/2}else{nhat<- nhat +1; n1<-n2<-nhat/2}
-    }else{
-      if(is.wholenumber(n1*nhat/(n1+n2))){n1 <- n1*nhat/(n1+n2); n2 <- nhat-n1
-      }else{
-        n1.user <- n1
-        n2.user <- n2
-        n1 <- ceiling(n1.user*nhat/(n1.user+n2.user)) 
-        n2 <- ceiling(n2.user*nhat/(n1.user+n2.user))
-        nhat <- n1 + n2
+MetSizeR <- function() {
+  ui <- shiny::navbarPage(
+    "MetSizeR",
+    theme = shinythemes::shinytheme("cerulean"),
+    # ~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~~~
+    # about page
+    # ~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~~~
+    shiny::tabPanel(
+      "About",
+      # ~~~~~~~~~~~~~~~~~~~~
+      # intro info
+      # ~~~~~~~~~~~~~~~~~~~~
+      shiny::fluidRow(
+        shiny::column(width = 2),
+        shiny::column(
+          width = 8,
+          shiny::h4(
+            "The",
+            shiny::tags$b("MetSizeR"),
+            " application was developed for metabolomic scientists to estimate the optimal sample size required for a study to achieve a desired false discovery rate. ",
+            shiny::tags$b("MetSizeR"),
+            "can be used with or without pilot data to estimate the sample size required.",
+            align = "center"
+          )
+        ),
+        shiny::column(width = 2),
+      ),
+      shiny::tags$br(),
+      # ~~~~~~~~~~~~~~~~~~~~
+      # references
+      # ~~~~~~~~~~~~~~~~~~~~
+      shiny::fluidRow(
+        shiny::column(width = 2),
+        shiny::column(
+          width = 8,
+          shiny::h4(shiny::tags$em("If you are using this application, please cite:")),
+          shiny::h4(
+            shiny::tags$ul(
+              shiny::tags$li(
+                shiny::tags$b("MetSizeR Paper:"),
+                shiny::tags$a(
+                  href = "https://bmcbioinformatics.biomedcentral.com/articles/10.1186/1471-2105-14-338",
+                  "\"MetSizeR: Selecting the optimal sample size for metabolomic studies using an analysis based approach\" G. Nyamundanda,
+                  I. C. Gormley, Y. Fan, W. M. Gallagher and L. Brennan, BMC Bioinformatics, 2013, 14, 338.",
+                  style = "color:black"
+                )
+              ),
+              shiny::tags$li(shiny::tags$b("R package:"), shiny::tags$a(
+                href = "https://CRAN.R-project.org/package=MetSizeR",
+                "MetSizeR: A Tool for Estimating Sample Sizes for Metabolomic Experiments (2021).",
+                style = "color:black"
+              )),
+              shiny::tags$li(
+                shiny::tags$b("Paper on analysis methods:"),
+                shiny::tags$a(
+                  href = "http://bmcbioinformatics.biomedcentral.com/articles/10.1186/1471-2105-11-571",
+                  "\"Probabilistic principal component analysis for metabolomic data\" G. Nyamundanda, L. Brennan and
+                  I. C. Gormley, BMC Bioinformatics, 2010, 11, 571.",
+                  style = "color:black"
+                )
+              )
+            )
+          )
+        ),
+        shiny::column(width = 2),
+      ),
+      shiny::tags$hr(),
+      # ~~~~~~~~~~~~~~~~~~~~
+      # more info section
+      # ~~~~~~~~~~~~~~~~~~~~
+      shiny::fluidRow(
+        shiny::column(width = 2),
+        shiny::column(
+          width = 8,
+          align = "center",
+          shiny::checkboxInput(
+            "more_info",
+            shiny::tags$b("Would you like to read further information about the methodology?", style = "color:#317eac"),
+            value = FALSE
+          ),
+          shiny::conditionalPanel(
+            condition = "input.more_info == true",
+            shiny::h4("The", shiny::tags$b("MetSizeR"), " algorithm can be broken into two stages; pilot data simulation, and sample size estimation.",
+              align = "center"
+            ),
+            shiny::h4(
+              shiny::tags$b("1. Pilot data simulation:"),
+              "The algorithm works by using simulated data to take the place of pilot study data
+              in sample size estimation. The simulated data are generated based on the planned
+              method of analysis, thus providing an analysis informed approach. At present the
+              algorithm is designed to operate for two different analysis methods; probabilistic
+              principal components analysis (PPCA) and probabilistic principal components and
+              covariates analysis (PPCCA) (Nyamundanda et al., 2010).",
+              align = "center"
+            ),
+            shiny::h4(
+              shiny::tags$b("2. Sample size estimation:"),
+              "Following the simulation of pilot data, the group labels of the data are
+              randomly permuted and the test statistics of each spectral bin or metabolite
+              are calculated. A specified proportion of the bins or metabolites are designated
+              as truly significant and their test statistics updated to reflect this. The FDR
+              is then calculated. This process is repeated several times and for several sample
+              sizes, with a simple linear regression procedure then implemented on the resulting
+              FDR values in order to determine the sample size at which the desired FDR is achieved.
+              An in-depth explanation of the method can be found in Nyamundanda et al. (2013),
+              referenced above.",
+              align = "center"
+            ),
+            shiny::tags$hr()
+          )
+        ),
+        shiny::column(width = 2)
+      )
+    ),
+    # ~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~~~
+    # sample size est page
+    # ~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~~~
+    shiny::tabPanel(
+      "Sample Size Estimation",
+      shiny::fluidPage(
+        # ~~~~~~~~~~~~~~~~~~~~
+        # inputs
+        # ~~~~~~~~~~~~~~~~~~~~
+        shiny::sidebarLayout(
+          shiny::sidebarPanel(
+            shiny::h3(shiny::tags$b("Estimate optimal sample size")),
+            # ~~~~~~~~~~~~~~~~~~~~
+            # analysis type
+            # ~~~~~~~~~~~~~~~~~~~~
+            shiny::radioButtons("targ", shiny::h5(shiny::tags$b("Type of experiment"), shiny::tags$em("Specify type of intended analysis.")),
+              choices = list("Untargeted", "Targeted"),
+              selected = "Untargeted"
+            ),
+            # ~~~~~~~~~~~~~~~~~~~~
+            # pilot data upload
+            # ~~~~~~~~~~~~~~~~~~~~
+            shiny::checkboxInput("pilot", shiny::tags$b("Are experimental pilot data available?", style = "color:#317eac"),
+              value = FALSE
+            ),
+            shiny::conditionalPanel(
+              condition = "input.pilot == true",
+              shiny::h5(shiny::tags$em(
+                "Please upload data in .csv format. Covariate columns should be included first,
+                with spectral data following in subsequent columns. If categorical covariates
+                are included, these should be included before any numerical covariates, if
+                present. The method assumes no missing data. Maximum filesize is 5MB."
+              )),
+              shiny::checkboxInput("header", shiny::tags$b("Does data contain a header?", style = "color:#317eac"),
+                value = FALSE
+              ),
+              shiny::fileInput("upload", shiny::h5(shiny::tags$b("Upload pilot data as .csv file")), accept = ".csv")
+            ),
+            # ~~~~~~~~~~~~~~~~~~~~
+            # no. bins/metabolites
+            # ~~~~~~~~~~~~~~~~~~~~
+            shiny::h4(shiny::tags$b("Please choose specifications")),
+            shiny::conditionalPanel(
+              condition = "input.pilot == false && input.targ == 'Untargeted'",
+              shiny::numericInput("spect_bins", shiny::h5(shiny::tags$b("Spectral bins"), shiny::tags$em("Specify expected number of spectral bins.")),
+                min = 50,
+                max = 5000,
+                value = 200
+              )
+            ),
+            shiny::conditionalPanel(
+              condition = "input.pilot == false && input.targ == 'Targeted'",
+              shiny::numericInput("spect_bins", shiny::h5(shiny::tags$b("Metabolites"), shiny::tags$em("Specify expected number of metabolites.")),
+                min = 10,
+                max = 800,
+                value = 200
+              )
+            ),
+            shiny::conditionalPanel(
+              condition = "input.spect_bins > 1000",
+              shiny::h5(shiny::tags$b("Please note that MetSizeR will take some time to run for larger data sizes. For up to 3000 bins expect MetSizeR to take several minutes. For 3000-5000 bins expect larger runtimes."))
+            ),
+            # ~~~~~~~~~~~~~~~~~~~~
+            # prop significant
+            # ~~~~~~~~~~~~~~~~~~~~
+            shiny::conditionalPanel(
+              condition = "input.targ == 'Untargeted'",
+              shiny::numericInput("prop_signif", shiny::h5(shiny::tags$b("Proportion of significant bins"), shiny::tags$em("Specify proportion of bins expected to be significant.")),
+                value = 0.2,
+                min = 0,
+                max = 1,
+                step = 0.05
+              )
+            ),
+            shiny::conditionalPanel(
+              condition = "input.targ == 'Targeted'",
+              shiny::numericInput("prop_signif", shiny::h5(shiny::tags$b("Proportion of significant metabolites"), shiny::tags$em("Specify proportion of metabolites expected to be significant.")),
+                value = 0.2,
+                min = 0,
+                max = 1,
+                step = 0.05
+              )
+            ),
+            # ~~~~~~~~~~~~~~~~~~~~
+            # model info
+            # ~~~~~~~~~~~~~~~~~~~~
+            shiny::radioButtons("model", shiny::h5(shiny::tags$b("Model"), shiny::tags$em("Specify model to be used in analysis.")),
+              choices = list("PPCA", "PPCCA"),
+              selected = "PPCA"
+            ),
+            shiny::conditionalPanel(
+              condition = "input.model == 'PPCCA'",
+              shiny::numericInput("num_numeric_covs", shiny::h5(shiny::tags$b("Specify number of numeric covariates")),
+                value = 0,
+                min = 0,
+                max = 5,
+                step = 1
+              ),
+              shiny::numericInput("num_cat_covs", shiny::h5(shiny::tags$b("Specify number of categorical covariates")),
+                value = 0,
+                min = 0,
+                max = 5,
+                step = 1
+              ),
+              shiny::conditionalPanel(
+                condition = "input.num_cat_covs > 0 && input.pilot == false",
+                shiny::numericInput("num_levels",
+                  shiny::h5(shiny::tags$b("Specify total number of levels of all categorical covariates")),
+                  value = 2,
+                  min = 2,
+                  max = 50,
+                  step = 1
+                )
+              )
+            ),
+            # ~~~~~~~~~~~~~~~~~~~~
+            # FDR
+            # ~~~~~~~~~~~~~~~~~~~~
+            shiny::numericInput("FDR", shiny::h5(shiny::tags$b("Target FDR"), shiny::tags$em("Specify desired FDR.")),
+              value = 0.05,
+              min = 0.01,
+              max = 1,
+              step = 0.01
+            ),
+            # ~~~~~~~~~~~~~~~~~~~~
+            # min group sizes
+            # ~~~~~~~~~~~~~~~~~~~~
+            shiny::h4(shiny::tags$b("Sample size per group")),
+            shiny::h5(shiny::tags$em("Specify minimum sample size to consider for each sample group. Note: this will fix the ratio of samples per group for each sample size tested.")),
+            shiny::numericInput("n1", shiny::h5(shiny::tags$b("Group 1: n1")),
+              value = 4,
+              min = 3
+            ),
+            shiny::numericInput("n2", shiny::h5(shiny::tags$b("Group 2: n2")),
+              value = 4,
+              min = 3
+            ),
+            # ~~~~~~~~~~~~~~~~~~~~
+            # go
+            # ~~~~~~~~~~~~~~~~~~~~
+            shiny::actionButton("go", "Estimate Optimal Sample Size!", class = "btn btn-lg btn-primary", width = "100%")
+          ),
+          # ~~~~~~~~~~~~~~~~~~~~
+          # results
+          # ~~~~~~~~~~~~~~~~~~~~
+          shiny::mainPanel(
+            shiny::fluidRow(
+              shiny::column(1),
+              # ~~~~~~~~~~~~~~~~~~~~
+              # plot
+              # ~~~~~~~~~~~~~~~~~~~~
+              shiny::column(
+                10,
+                shiny::plotOutput("samp_size_plot")
+              ),
+              shiny::column(1)
+            ),
+            shiny::tags$hr(),
+            # ~~~~~~~~~~~~~~~~~~~~
+            # result statement
+            # ~~~~~~~~~~~~~~~~~~~~
+            shiny::conditionalPanel(
+              condition = "input.go > 0",
+              shiny::fluidRow(
+                shiny::column(1),
+                shiny::column(10,
+                  align = "center",
+                  shiny::h3(shiny::textOutput("results")),
+                  shiny::tags$em(shiny::textOutput("samp_statement")),
+                  shiny::h4(shiny::textOutput("with_breakdown")),
+                  shiny::tags$em(shiny::textOutput("g1_statement")),
+                  shiny::tags$em(shiny::textOutput("g2_statement"))
+                ),
+                shiny::column(1)
+              ),
+              shiny::tags$br(),
+              shiny::tags$hr(),
+              # ~~~~~~~~~~~~~~~~~~~~
+              # download plot
+              # ~~~~~~~~~~~~~~~~~~~~
+              shiny::fluidRow(
+                shiny::column(1),
+                shiny::column(10,
+                  align = "center",
+                  shiny::downloadButton(
+                    "plot_download",
+                    "Download Plot",
+                    class = "btn btn-primary"
+                  ),
+                  # ~~~~~~~~~~~~~~~~~~~~
+                  # extra data
+                  # ~~~~~~~~~~~~~~~~~~~~
+                  shiny::checkboxInput(
+                    "show_df",
+                    shiny::tags$b("Show values from plot?",
+                      style = "color:#317eac"
+                    ),
+                    value = FALSE
+                  ),
+                  shiny::tableOutput("test_tab"),
+                  shiny::fluidRow(
+                    shiny::downloadButton(
+                      "df_download",
+                      "Download Plot Data as .csv",
+                      class = "btn btn-primary"
+                    )
+                  )
+                ),
+                shiny::column(1)
+              )
+            )
+          )
+        )
+      )
+    ),
+    # ~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~~~
+    # vary props page
+    # ~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~~~
+    shiny::tabPanel(
+      "Vary Proportion of Significant Spectral Bins",
+      shiny::fluidPage(
+        # ~~~~~~~~~~~~~~~~~~~~
+        # inputs
+        # ~~~~~~~~~~~~~~~~~~~~
+        shiny::sidebarLayout(
+          shiny::sidebarPanel(
+            shiny::h3(
+              shiny::tags$b("Vary proportion of significant spectral bins or metabolites")
+            ),
+            shiny::h5(
+              shiny::tags$em("If the expected proportion of significant bins or metabolites
+                           in the experiment is unknown, this tab can be used to see
+                           the effect of changing this proportion on the sample size
+                           needed to achieve a specified FDR.")
+            ),
+            # ~~~~~~~~~~~~~~~~~~~~
+            # analysis type
+            # ~~~~~~~~~~~~~~~~~~~~
+            shiny::radioButtons("targ_prop", shiny::h5(shiny::tags$b("Type of experiment"), shiny::tags$em("Specify type of intended analysis.")),
+              choices = list("Untargeted", "Targeted"),
+              selected = "Untargeted"
+            ),
+            # ~~~~~~~~~~~~~~~~~~~~
+            # proportions
+            # ~~~~~~~~~~~~~~~~~~~~
+            shiny::h4(shiny::tags$b("Choose proportions to test")),
+            shiny::h5(shiny::tags$em("Choose up to four proportions of significant bins or metabolites with which to run the method. If you wish to test less than four proportions, enter a value of zero in any remaining options.")),
+            shiny::numericInput("prop1",
+              label = NULL,
+              value = 0,
+              min = 0,
+              max = 1,
+              step = 0.05
+            ),
+            shiny::numericInput("prop2",
+              label = NULL,
+              value = 0,
+              min = 0,
+              max = 1,
+              step = 0.05
+            ),
+            shiny::numericInput("prop3",
+              label = NULL,
+              value = 0,
+              min = 0,
+              max = 1,
+              step = 0.05
+            ),
+            shiny::numericInput("prop4",
+              label = NULL,
+              value = 0,
+              min = 0,
+              max = 1,
+              step = 0.05
+            ),
+            shiny::h4(shiny::tags$b("Please choose specifications")),
+            # ~~~~~~~~~~~~~~~~~~~~
+            # no. bins/metabs
+            # ~~~~~~~~~~~~~~~~~~~~
+            shiny::conditionalPanel(
+              condition = "input.targ_prop == 'Untargeted'",
+              shiny::numericInput("spect_bins_prop", shiny::h5(shiny::tags$b("Spectral bins"), shiny::tags$em("Specify expected number of spectral bins.")),
+                min = 50,
+                max = 5000,
+                value = 200
+              )
+            ),
+            shiny::conditionalPanel(
+              condition = "input.targ_prop == 'Targeted'",
+              shiny::numericInput("spect_bins_prop", shiny::h5(shiny::tags$b("Metabolites"), shiny::tags$em("Specify expected number of metabolites.")),
+                min = 10,
+                max = 800,
+                value = 200
+              )
+            ),
+            shiny::conditionalPanel(
+              condition = "input.spect_bins_prop > 1000",
+              shiny::h5(shiny::tags$b("Please note that MetSizeR will take some time to run for larger data sizes. For more than 1000 bins this process will take a long time."))
+            ),
+            # ~~~~~~~~~~~~~~~~~~~~
+            # model details
+            # ~~~~~~~~~~~~~~~~~~~~
+            shiny::radioButtons("model_prop", shiny::h5(shiny::tags$b("Model"), shiny::tags$em("Specify model to be used in analysis.")),
+              choices = list("PPCA", "PPCCA"),
+              selected = "PPCA"
+            ),
+            shiny::conditionalPanel(
+              condition = "input.model_prop == 'PPCCA'",
+              shiny::numericInput("num_numeric_covs_prop", shiny::h5(shiny::tags$b("Specify number of numeric covariates")),
+                value = 0,
+                min = 0,
+                max = 5,
+                step = 1
+              ),
+              shiny::numericInput("num_cat_covs_prop", shiny::h5(shiny::tags$b("Specify number of categorical covariates")),
+                value = 0,
+                min = 0,
+                max = 5,
+                step = 1
+              ),
+              shiny::conditionalPanel(
+                condition = "input.num_cat_covs_prop > 0",
+                shiny::numericInput("num_levels_prop",
+                  shiny::h5(shiny::tags$b("Specify total number of levels of all categorical covariates")),
+                  value = 2,
+                  min = 2,
+                  max = 50,
+                  step = 1
+                )
+              )
+            ),
+            # ~~~~~~~~~~~~~~~~~~~~
+            # FDR
+            # ~~~~~~~~~~~~~~~~~~~~
+            shiny::numericInput("FDR_prop", shiny::h5(shiny::tags$b("Target FDR"), shiny::tags$em("Specify desired FDR.")),
+              value = 0.05,
+              min = 0.01,
+              max = 1,
+              step = 0.01
+            ),
+            # ~~~~~~~~~~~~~~~~~~~~
+            # go
+            # ~~~~~~~~~~~~~~~~~~~~
+            shiny::actionButton("go_prop", "Run MetsizeR for Varied Proportions!", class = "btn btn-lg btn-primary", width = "100%")
+          ),
+          # ~~~~~~~~~~~~~~~~~~~~
+          # results
+          # ~~~~~~~~~~~~~~~~~~~~
+          shiny::mainPanel(
+            shiny::fluidRow(
+              shiny::column(1),
+              # ~~~~~~~~~~~~~~~~~~~~
+              # prop 1
+              # ~~~~~~~~~~~~~~~~~~~~
+              shiny::column(
+                5,
+                align = "center",
+                shiny::h4(shiny::textOutput("prop1_res")),
+                shiny::plotOutput("prop1_plot"),
+                shiny::conditionalPanel(
+                  condition = "input.go_prop > 0",
+                  shiny::downloadButton(
+                    "plot_download1",
+                    "Download Plot",
+                    class = "btn btn-primary"
+                  )
+                )
+              ),
+              # ~~~~~~~~~~~~~~~~~~~~
+              # prop 2
+              # ~~~~~~~~~~~~~~~~~~~~
+              shiny::column(
+                5,
+                align = "center",
+                shiny::h4(shiny::textOutput("prop2_res")),
+                shiny::plotOutput("prop2_plot"),
+                shiny::tags$br(),
+                shiny::conditionalPanel(
+                  condition = "input.go_prop > 0",
+                  shiny::downloadButton(
+                    "plot_download2",
+                    "Download Plot",
+                    class = "btn btn-primary"
+                  )
+                )
+              ),
+              shiny::column(1)
+            ),
+            shiny::tags$br(),
+            shiny::tags$hr(),
+            shiny::fluidRow(
+              shiny::column(1),
+              # ~~~~~~~~~~~~~~~~~~~~
+              # prop 3
+              # ~~~~~~~~~~~~~~~~~~~~
+              shiny::column(
+                5,
+                align = "center",
+                shiny::h4(shiny::textOutput("prop3_res")),
+                shiny::plotOutput("prop3_plot"),
+                shiny::conditionalPanel(
+                  condition = "input.go_prop > 0",
+                  shiny::downloadButton(
+                    "plot_download3",
+                    "Download Plot",
+                    class = "btn btn-primary"
+                  )
+                )
+              ),
+              # ~~~~~~~~~~~~~~~~~~~~
+              # prop 4
+              # ~~~~~~~~~~~~~~~~~~~~
+              shiny::column(
+                5,
+                align = "center",
+                shiny::h4(shiny::textOutput("prop4_res")),
+                shiny::plotOutput("prop4_plot"),
+                shiny::conditionalPanel(
+                  condition = "input.go_prop > 0",
+                  shiny::downloadButton(
+                    "plot_download4",
+                    "Download Plot",
+                    class = "btn btn-primary"
+                  )
+                )
+              ),
+              shiny::column(1)
+            )
+          )
+        )
+      )
+    )
+  )
+
+
+
+  server <- function(input, output, session) {
+
+    # ~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~~~
+    # sample size est page
+    # ~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~~~
+
+    # ~~~~~~~~~~~~~~~~~~~~
+    # data upload
+    # ~~~~~~~~~~~~~~~~~~~~
+    # uploaded user data
+    # in tibble format
+    user_data <- shiny::reactive({
+      # make sure data was uploaded before proceeding
+      shiny::req(input$upload)
+
+      # get file extension for uploaded file
+      check_ext <- tools::file_ext(input$upload$name)
+
+      # validate if extension is .csv as required
+      switch(check_ext,
+        csv = vroom::vroom(input$upload$datapath, delim = ",", col_names = input$header),
+        shiny::validate("File type invalid: Please upload a .csv file.")
+      ) %>%
+        dplyr::mutate_at(0:input$num_cat_covs, as.factor) # mutate categorical covs to factors
+    })
+
+    # deal with categorical covs
+    cats <- shiny::reactive({
+      if (input$pilot == TRUE & input$num_cat_covs != 0) {
+        stats::model.matrix(~., data = user_data()[, 1:input$num_cat_covs])[, -1]
       }
-    }
-    est<-c(nhat, n1, n2)
-    names(est)<-c("n","n1","n2")
-    
-    ############################################## Plotting the sample size estimation results
-    if(plot.prop == FALSE)
-    {
-      par(mfrow=c(1,1))
-      ## Plot to illustrate variability due to simulation of the pilot data
-      plot(results_sim[, "sample size"], results_sim[, "fdr50_sim"], xlab="Sample size", ylab="FDR", pch=16, col=2, ylim = c(0, 1))
-      lines(results_sim[, "sample size"], results_sim[, "fdr50_sim"], col = 2, lwd=2)
-      lines(results_sim[, "sample size"], results_sim[, "fdr90_sim"], col = 2, lty=2, lwd=2)
-      lines(results_sim[, "sample size"], results_sim[, "fdr10_sim"], col = 2, lty=2, lwd=2)
-      abline(h = target.fdr, lty = 3, col=1)
-      legend("topleft", bty="n", paste("FDR = ", target.fdr), col=1, lty=3)
-      arrows(nhat, 0.8, nhat,-0.03, length = 0.1,lwd=2, col=3)
-      title(paste("Sample size estimation"), font=1)
-      text(nhat+8, 0.89, labels=substitute(hat(n)==nhat, list(nhat=nhat)), col=3, cex=1.2)
-      text(nhat+8, 0.85, labels=substitute((list(n[1]==n1,n[2]==n2)), list(n1=n1,n2=n2)), col=3, cex=1.2)
-    }else{
-      par(mfrow=c(2,2), mar=c(4,3,1.5,0.5), oma=c(0,0,2,0),mgp=c(2,1,0)) 
-      for(k in 1:length(sfactors)) 
-      {
-        ## variability due to different number of k values
-        if(Targeted){plot(results_prop$results_prop[, "prop"], results_prop$results_prop[, paste("fdr50_prop",sfactors[k],sep="_")], xlab="Proportion of significant metabolites", ylab="FDR", pch=16, col=2, ylim = c(0, 1))}
-        else{plot(results_prop$results_prop[, "prop"], results_prop$results_prop[, paste("fdr50_prop",sfactors[k],sep="_")], xlab="Proportion of significant bins", ylab="FDR", pch=16, col=2, ylim = c(0, 1))}
-        lines(results_prop$results_prop[, "prop"], results_prop$results_prop[, paste("fdr50_prop",sfactors[k],sep="_")], col = 2, lwd=2)
-        lines(results_prop$results_prop[, "prop"], results_prop$results_prop[, paste("fdr90_prop",sfactors[k],sep="_")], col = 2, lty=2, lwd=2)
-        lines(results_prop$results_prop[, "prop"], results_prop$results_prop[, paste("fdr10_prop",sfactors[k],sep="_")], col = 2, lty=2, lwd=2)
-        abline(h = target.fdr, lty = 3, col=1)
-        legend("topleft", bty="n", paste("FDR = ", target.fdr), col=1, lty=3)
-        title(paste("Sample size=", sfactors[k]), cex = 0.7)
+    })
+
+    # combine all covs into one object
+    covs <- shiny::reactive({
+      if (input$pilot == TRUE & input$num_cat_covs != 0 & input$num_numeric_covs != 0) {
+        as.matrix(cbind(cats(), user_data()[, (input$num_cat_covs + 1):(input$num_cat_covs + input$num_numeric_covs)]))
+      } else if (input$pilot == TRUE & input$num_cat_covs == 0 & input$num_numeric_covs != 0) {
+        as.matrix(user_data()[, (input$num_cat_covs + 1):(input$num_cat_covs + input$num_numeric_covs)])
+      } else if (input$pilot == TRUE & input$num_cat_covs != 0 & input$num_numeric_covs == 0) {
+        cats()
       }
-      if(Targeted){title("Varying the proportion of significant metabolites", outer = T)}
-      else{title("Varying the proportion of significant bins", outer = T)}
-    }
-    return(list(nhat=est, results_sim = results_sim, results_prop = results_prop, p=p, prop=prop, ncovar=ncovar, model=model, n1=n1, n2=n2, target.fdr = target.fdr))
-  }#End of metsize function
-  
-  
-  #################################################################################### 
-  # function to find data and covariates files, read in and quit                                    #
-  ####################################################################################
-  pilot<- NULL                  # Pilot dataset
-  covars<- NULL                 # covariates
-  pilot.open<- function(h,...)
-  {
-    datapath<- gfile("Select the data file", filter = list("txt" = list(patterns = c("*.txt","*.TXT"))), type="open")
-    pilot<<- read.table(datapath,sep="\t",header=TRUE)
-  }
-  cov.open<- function(h,...)
-  {
-    covpath<- gfile("Select the covariates file",filter = list("txt" = list(patterns = c("*.txt","*.TXT"))),type="open")
-    covars<<- as.matrix(read.table(covpath,sep="\t",header=TRUE))
-  }
-  demo.pilot.open<- function(h,...)
-  {
-    pilot<<- read.table(paste(file.path(path.package(package="MetSizeR")[1]),"/extdata/nmr_spectra.txt",sep=""),sep="\t",header=TRUE)[,-1]
-    covars<<- as.matrix(read.table(paste(file.path(path.package(package="MetSizeR")[1]),"/extdata/nmr_spectra.txt",sep=""),sep="\t",header=TRUE)[,1])
+    })
+
+    # isolate input spectral data
+    pilot_spect <- shiny::reactive({
+      if (input$model == "PPCCA") {
+        as.data.frame(user_data()[, -(1:(input$num_cat_covs + input$num_numeric_covs))])
+      } else {
+        as.data.frame(user_data())
+      }
+    })
+
+
+    # ~~~~~~~~~~~~~~~~~~~~
+    # sample size est
+    # ~~~~~~~~~~~~~~~~~~~~
+    metsizer <- shiny::eventReactive(input$go, {
+
+      # notification of status
+      # to show that the algorithm is calculating
+      # close when metsize done
+      id <- shiny::showNotification(
+        "Estimating sample size. This may take several minutes for larger data...",
+        duration = NULL,
+        closeButton = FALSE
+      )
+      on.exit(shiny::removeNotification(id), add = TRUE)
+
+      if (input$pilot) {
+        # p = input$spect_bins is ok for pilot data as this is overwritten by ncol(pilot) in metsize function
+        if (input$model == "PPCA") {
+          metsize(
+            pilot = pilot_spect(), n1 = input$n1, n2 = input$n2,
+            p = input$spect_bins, prop = input$prop_signif,
+            covars = NULL, ncovar = 0, model = input$model,
+            plot.prop = FALSE, target.fdr = input$FDR,
+            Targeted = FALSE
+          )
+        } else {
+          metsize(
+            pilot = pilot_spect(), n1 = input$n1, n2 = input$n2,
+            p = input$spect_bins, prop = input$prop_signif,
+            covars = covs(), ncovar = input$num_numeric_covs + input$num_levels - input$num_cat_covs,
+            model = input$model,
+            plot.prop = FALSE, target.fdr = input$FDR,
+            Targeted = FALSE
+          )
+        }
+      } else {
+        if (input$model == "PPCA") {
+          metsize(
+            pilot = NULL, n1 = input$n1, n2 = input$n2,
+            p = input$spect_bins, prop = input$prop_signif,
+            covars = NULL, ncovar = 0, model = input$model,
+            plot.prop = FALSE, target.fdr = input$FDR,
+            Targeted = FALSE
+          )
+        } else {
+          metsize(
+            pilot = NULL, n1 = input$n1, n2 = input$n2,
+            p = input$spect_bins, prop = input$prop_signif,
+            covars = NULL, ncovar = input$num_numeric_covs + input$num_levels - input$num_cat_covs,
+            model = input$model,
+            plot.prop = FALSE, target.fdr = input$FDR,
+            Targeted = FALSE
+          )
+        }
+      }
+    })
+
+    # ~~~~~~~~~~~~~~~~~~~~
+    # plot data
+    # for sample size est
+    # ~~~~~~~~~~~~~~~~~~~~
+
+    # to update
+    plot_obj <- shiny::reactiveValues()
+
+    # pull data from result of metsize
+    plot_data <- shiny::reactive(data.frame(metsizer()$results_sim))
+
+    # plot title
+    # does not change until alg run again
+    plot_title <- shiny::reactive({
+      variable_title <- ifelse(input$targ == "Untargeted", "Bins", "Metabolites")
+      pilot_numbers <- ifelse(input$pilot, ncol(pilot_spect()), input$spect_bins)
+      paste("Sample Size Estimation for", input$prop_signif, "of", pilot_numbers, variable_title, "Significant")
+    })
+
+    # make plot
+    plot_obj$fdr_plot <- shiny::eventReactive(input$go, {
+      plot_fun(plot_data(), input$FDR, metsizer()$nhat) +
+        ggplot2::labs(title = plot_title())
+    })
+
+    # render plot
+    output$samp_size_plot <- shiny::renderPlot({
+      plot_obj$fdr_plot()
+    })
+
+
+    # ~~~~~~~~~~~~~~~~~~~~
+    # results statements
+    # ~~~~~~~~~~~~~~~~~~~~
+    output$results <- shiny::renderText("Results")
+
+    output$samp_statement <- shiny::renderText(paste0(
+      "Estimated optimal sample size: ",
+      metsizer()$nhat[1]
+    ))
+
+    output$with_breakdown <- shiny::renderText("Per-Group Breakdown")
+
+    output$g1_statement <- shiny::renderText(paste0(
+      "Group 1 sample size: ",
+      metsizer()$nhat[2]
+    ))
+
+    output$g2_statement <- shiny::renderText(paste0(
+      "Group 2 sample size: ",
+      metsizer()$nhat[3]
+    ))
+
+    # ~~~~~~~~~~~~~~~~~~~~
+    # downloads
+    # ~~~~~~~~~~~~~~~~~~~~
+    # download plot
+    output$plot_download <- shiny::downloadHandler(
+      filename = function() {
+        paste0("metsizer_plot.png")
+      },
+      content = function(file) {
+        ggplot2::ggsave(file,
+          plot = plot_obj$fdr_plot(), device = "png", width = 10,
+          height = 8,
+          units = "in"
+        )
+      }
+    )
+
+    # show data from plot if wanted
+    output$test_tab <- shiny::renderTable({
+      if (input$show_df) {
+        plot_data()
+      }
+    })
+
+    # download plot data
+    output$df_download <- shiny::downloadHandler(
+      filename = function() {
+        paste0("metsizer_table.csv")
+      },
+      content = function(file) {
+        utils::write.csv(plot_data(), file, row.names = FALSE)
+      }
+    )
+
+    # ~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~~~
+    # vary props page
+    # ~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~~~
+
+    # ~~~~~~~~~~~~~~~~~~~~
+    # dealing with props
+    # ~~~~~~~~~~~~~~~~~~~~
+    # store props as entered when go pressed
+    in_props <- shiny::eventReactive(input$go_prop, {
+      c(input$prop1, input$prop2, input$prop3, input$prop4)
+    })
+
+    # isolate valid props
+    props <- shiny::eventReactive(input$go_prop, {
+      as.vector(stats::na.omit(in_props())[in_props() > 0])
+    })
+
+
+    # ~~~~~~~~~~~~~~~~~~~~
+    # samp size calc
+    # ~~~~~~~~~~~~~~~~~~~~
+    prop_data <- shiny::eventReactive(input$go_prop, {
+      # notification of status
+      # to show that the algorithm is calculating
+      # remove when finished
+      id <- shiny::showNotification(
+        "Estimating sample sizes. This may take several minutes for larger data...",
+        duration = NULL,
+        closeButton = FALSE
+      )
+      on.exit(shiny::removeNotification(id), add = TRUE)
+
+      metsize_props(props(), input$spect_bins_prop, input$FDR_prop, input$model_prop, input$num_numeric_covs + input$num_levels - input$num_cat_covs)
+    })
+
+    # ~~~~~~~~~~~~~~~~~~~~
+    # plotting
+    # ~~~~~~~~~~~~~~~~~~~~
+    # indexes for plot generation
+    # to deal with when valid props are entered in different input options
+    # and invalids in other (ie not in order)
+    ind_2 <- shiny::eventReactive(input$go_prop, {
+      ifelse(input$prop1 == 0, 1, 2)
+    })
+
+    ind_3 <- shiny::eventReactive(input$go_prop, {
+      if (sum(c(input$prop1, input$prop2) == 0) == 0) {
+        3
+      } else if (sum(c(input$prop1, input$prop2) == 0) == 1) {
+        2
+      } else {
+        1
+      }
+    })
+
+    ind_4 <- shiny::eventReactive(input$go_prop, {
+      if (sum(c(input$prop1, input$prop2, input$prop3) == 0) == 0) {
+        4
+      } else if (sum(c(input$prop1, input$prop2, input$prop3) == 0) == 1) {
+        3
+      } else if (sum(c(input$prop1, input$prop2, input$prop3) == 0) == 2) {
+        2
+      } else {
+        1
+      }
+    })
+
+    # change title based on if targ or untarg
+    variable_title_prop <- shiny::reactive({
+      ifelse(input$targ_prop == "Untargeted", "Bins", "Metabolites")
+    })
+
+    # make plots render only when action button pressed
+    plot_1 <- shiny::eventReactive(input$go_prop, {
+      if (input$prop1 != 0) {
+        plot_fun(data.frame(prop_data()[[1]]$results_sim), input$FDR_prop, prop_data()[[1]]$nhat) +
+          ggplot2::labs(title = paste("Sample Size Estimation for", input$prop1, "of", input$spect_bins_prop, variable_title_prop(), "Significant"))
+      } else {
+        NULL
+      }
+    })
+
+    plot_2 <- shiny::eventReactive(input$go_prop, {
+      if (input$prop2 != 0) {
+        plot_fun(data.frame(prop_data()[[ind_2()]]$results_sim), input$FDR_prop, prop_data()[[ind_2()]]$nhat) +
+          ggplot2::labs(title = paste("Sample Size Estimation for", input$prop2, "of", input$spect_bins_prop, variable_title_prop(), "Significant"))
+      } else {
+        NULL
+      }
+    })
+
+    plot_3 <- shiny::eventReactive(input$go_prop, {
+      if (input$prop3 != 0) {
+        plot_fun(data.frame(prop_data()[[ind_3()]]$results_sim), input$FDR_prop, prop_data()[[ind_3()]]$nhat) +
+          ggplot2::labs(title = paste("Sample Size Estimation for", input$prop3, "of", input$spect_bins_prop, variable_title_prop(), "Significant"))
+      } else {
+        NULL
+      }
+    })
+
+    plot_4 <- shiny::eventReactive(input$go_prop, {
+      if (input$prop4 != 0) {
+        plot_fun(data.frame(prop_data()[[ind_4()]]$results_sim), input$FDR_prop, prop_data()[[ind_4()]]$nhat) +
+          ggplot2::labs(title = paste("Sample Size Estimation for", input$prop4, "of", input$spect_bins_prop, variable_title_prop(), "Significant"))
+      } else {
+        NULL
+      }
+    })
+
+    # render plots
+    output$prop1_plot <- shiny::renderPlot({
+      plot_1()
+    })
+
+    output$prop2_plot <- shiny::renderPlot({
+      plot_2()
+    })
+
+    output$prop3_plot <- shiny::renderPlot({
+      plot_3()
+    })
+
+    output$prop4_plot <- shiny::renderPlot({
+      plot_4()
+    })
+
+    # ~~~~~~~~~~~~~~~~~~~~
+    # results statements
+    # ~~~~~~~~~~~~~~~~~~~~
+    # generate text with values when button is pressed
+    text_1 <- shiny::eventReactive(input$go_prop, {
+      if (input$prop1 != 0) {
+        paste0(
+          "For ", input$prop1, " of bins expected to be significant and an FDR of ", input$FDR_prop, ", the estimated sample size is: ", prop_data()[[1]]$nhat[1]
+        )
+      }
+    })
+
+    text_2 <- shiny::eventReactive(input$go_prop, {
+      if (input$prop2 != 0) {
+        paste0(
+          "For ", input$prop2, " of bins expected to be significant and an FDR of ", input$FDR_prop, ", the estimated sample size is: ", prop_data()[[ind_2()]]$nhat[1]
+        )
+      }
+    })
+
+    text_3 <- shiny::eventReactive(input$go_prop, {
+      if (input$prop3 != 0) {
+        paste0(
+          "For ", input$prop3, " of bins expected to be significant and an FDR of ", input$FDR_prop, ", the estimated sample size is: ", prop_data()[[ind_3()]]$nhat[1]
+        )
+      }
+    })
+
+    text_4 <- shiny::eventReactive(input$go_prop, {
+      if (input$prop4 != 0) {
+        paste0(
+          "For ", input$prop4, " of bins expected to be significant and an FDR of ", input$FDR_prop, ", the estimated sample size is: ", prop_data()[[ind_4()]]$nhat[1]
+        )
+      }
+    })
+
+    # render text
+    output$prop1_res <- shiny::renderText({
+      text_1()
+    })
+
+    output$prop2_res <- shiny::renderText({
+      text_2()
+    })
+
+    output$prop3_res <- shiny::renderText({
+      text_3()
+    })
+
+    output$prop4_res <- shiny::renderText({
+      text_4()
+    })
+
+    # ~~~~~~~~~~~~~~~~~~~~
+    # downloads
+    # ~~~~~~~~~~~~~~~~~~~~
+    # plot downloads
+    # if editing be careful with indices
+    output$plot_download1 <- shiny::downloadHandler(
+      filename = function() {
+        paste("metsizer_prop_plot_", in_props()[1], ".png")
+      },
+      content = function(file) {
+        ggplot2::ggsave(file,
+          plot = plot_1(),
+          device = "png",
+          width = 10,
+          height = 8,
+          units = "in"
+        )
+      }
+    )
+
+    output$plot_download2 <- shiny::downloadHandler(
+      filename = function() {
+        paste("metsizer_prop_plot_", in_props()[2], ".png")
+      },
+      content = function(file) {
+        ggplot2::ggsave(file,
+          plot = plot_2(),
+          device = "png",
+          width = 10,
+          height = 8,
+          units = "in"
+        )
+      }
+    )
+
+    output$plot_download3 <- shiny::downloadHandler(
+      filename = function() {
+        paste("metsizer_prop_plot_", in_props()[3], ".png")
+      },
+      content = function(file) {
+        ggplot2::ggsave(file,
+          plot = plot_3(),
+          device = "png",
+          width = 10,
+          height = 8,
+          units = "in"
+        )
+      }
+    )
+
+    output$plot_download4 <- shiny::downloadHandler(
+      filename = function() {
+        paste("metsizer_prop_plot_", in_props()[4], ".png")
+      },
+      content = function(file) {
+        ggplot2::ggsave(file,
+          plot = plot_4(),
+          device = "png",
+          width = 10,
+          height = 8,
+          units = "in"
+        )
+      }
+    )
   }
 
-  ####################################################################################
-  # GUI for sample size calculation with/without pilot dataset                       #
-  ####################################################################################
-  ssize.est<- function(inputData, inputCov, Targeted=FALSE)
-  {
-    pilot<-inputData
-    covars<-inputCov
-    
-    # GUI handler
-    up.size<- function(h,...)
-    {
-      mod=svalue(models)
-      if(((length(pilot)!=0)&(length(covars)==0)&(mod=="PPCCA")))
-      {
-        gmessage("Please upload the covariates of the pilot data first",icon="info")
-      }else{
-        
-        n1=as.numeric(svalue(ng1)); n2=as.numeric(svalue(ng2))
-        if(is.na(n1)|is.na(n2)){n1=n2=4}
-        if((n1>15)|(n2>15)|(n1<3)|(n2<3))
-        {  
-          if((n1<3)|(n2<3))
-          {
-            gmessage("n1 or n2 values can not be less than three",icon="info")
-          }else{
-            gmessage("n1 or n2 values can not be greater than 15",icon="info")
-          }
-        }else{
-          enabled(propsig)<-enabled(Mod)<-enabled(tfdr)<-enabled(Sz)<-enabled(gch)<-enabled(cal)<-FALSE
-          if(length(pilot)!=0){ncov=0}else{ncov=svalue(ncov); enabled(spec)<-FALSE}
-          enabled(fin)<-TRUE
-          svalue(sampleSize)<- "is running please wait..."
-          p=svalue(nspectralBins)
-          prop=svalue(sigMet)
-          t.fdr=svalue(targetfdr)
-          if(svalue(dis)){ ggraphics(dpi = 100, ps = 9)}
-          if(Targeted){Targ=TRUE}else{Targ=FALSE}
-          Sav<-FALSE 
-          if(Sav<-svalue(dis))
-          {
-            pdf(paste(getwd(),"/MetSizeRplot.pdf",sep="")) 
-            metsize(pilot=pilot, n1=n1, n2=n2, p=p, prop=prop, covars=covars, ncovar=ncov, model=mod, plot.prop=svalue(gch), target.fdr= t.fdr, Targeted=Targ)
-            dev.off() 
-          }else{metsize(pilot=pilot, n1=n1, n2=n2, p=p, prop=prop, covars=covars, ncovar=ncov, model=mod, plot.prop=svalue(gch), target.fdr= t.fdr, Targeted=Targ)}
-          enabled(fin)<-FALSE
-          if(length(pilot)==0){enabled(spec)<-TRUE}
-          enabled(propsig)<-enabled(Mod)<-enabled(tfdr)<-enabled(Sz)<-enabled(gch)<-enabled(cal)<-TRUE
-          svalue(sampleSize)<- "has finished!!!"
-        }#if n
-      }#if mod
-    }# end up.size function
-    
-    # GUI  components
-    availModels <- c("PPCA", "PPCCA", "DPPCA")
-    nspectralBins <- gradio(c(50,100,200,300,500,1000), selected=3)
-    nMet <- gradio(c(20,30,50,70,100,200), selected=3)
-    sigMet <- gspinbutton(from=0.1, to = 1, by = 0.1, value=0.2)
-    models <- gcombobox(availModels,selected=1)
-    targetfdr <- gslider(from=0.01,to=0.2,by=.01, value=0.05)
-    
-    # GUI layout MetSizeR without pilot data
-    if(length(pilot)==0)
-    {
-      if(Targeted){ss.est<<- gwindow("MetSizeR without pilot targeted data")}
-      else{ss.est<<- gwindow("MetSizeR without pilot NMR data")}
-      pg <- gpanedgroup(container = ss.est, horizontal=TRUE)
-      nb <- ggroup(horizontal = FALSE, container = pg)
-      if(Targeted)
-      {spec<-gframe("Metabolites", container=nb )
-       add(spec, nMet )
-      }else{spec<-gframe("Spectral bins", container=nb )
-            add(spec, nspectralBins)}
-      if(Targeted){propsig <- gframe("Proportion of significant metabolites", container=nb )}
-      else{ propsig <- gframe("Proportion of significant bins", container=nb )}
-      add(propsig, sigMet, expand=TRUE)
-      Mod <- gframe("Model", container=nb)
-      Mod.pos<- glayout(container=Mod)
-      Mod.pos[1,1]<-models<-gcombobox(availModels,handler=function(h,...)
-      {
-        if (svalue(models)=="PPCA"){enabled(ncov)<- FALSE}
-        if (svalue(models)=="DPPCA"){enabled(ncov)<- FALSE}
-        if (svalue(models)=="PPCCA"){enabled(ncov)<- TRUE}
-      },selected=1) 
-      Mod.pos[1,2]<- "ncovars="
-      Mod.pos[1,3]<-ncov<-gspinbutton(from=1, to = 10, by = 1, value=1)
-      enabled(ncov)<- FALSE
-      tfdr <- gframe("Target FDR", container=nb )
-      add(tfdr,targetfdr , expand=TRUE)
-      Sz<- gframe("Sample size per group", container=nb )
-      Sz.pos<- glayout(container=Sz)
-      Sz.pos[1,1]<- glabel("n1=")
-      Sz.pos[1,2]<-ng1<-gedit("4")
-      Sz.pos[2,1]<- glabel("n2=")
-      Sz.pos[2,2]<-ng2<-gedit("4")
-      cal<-gbutton("calculate", container=nb, handler = up.size)
-      if(Targeted){gch<- gcheckbox("Plot proportion of significant metabolites", container= nb, handler = up.size)}
-      else{gch<- gcheckbox("Plot proportion of significant bins", container= nb, handler = up.size)}
-      dis<- gcheckbox("Save results in R directory", container= nb, handler=up.size)
-      gseparator()
-      fin<- gframe("", container=nb )
-      fin.stat<- glayout(container=fin)
-      fin.stat[10,1]<-glabel("MetSizeR status:", handler=function(h,...){enabled(sampleSize)<-FALSE})
-      fin.stat[11,1,anchor=c(-1,-1)]<-sampleSize<- gedit("idle...")  
-      enabled(fin)<-FALSE
-      add(pg, ggraphics(dpi = 100, ps = 9))
-    }else{
-      
-      # GUI layout MetSizeR with pilot data
-      if(Targeted){ss.est<<- gwindow("MetSizeR with pilot targetd data")}
-      else{ss.est<<- gwindow("MetSizeR with pilot NMR data")}
-      pg <- gpanedgroup(container = ss.est, horizontal=TRUE)
-      nb <- ggroup(horizontal = FALSE, container = pg)
-      if(Targeted)
-      {propsig <- gframe("Proportion of significant metabolites", container=nb )}
-      else{propsig <- gframe("Proportion of significant bins", container=nb )}
-      add(propsig,sigMet, expand=TRUE)
-      Mod <- gframe("Model", container=nb)
-      Mod.pos<- glayout(container=Mod)
-      Mod.pos[1,1]<-models<-gcombobox(availModels,selected=1) 
-      tfdr <- gframe("Target FDR", container=nb )
-      add(tfdr,targetfdr, expand=TRUE)
-      Sz<- gframe("Sample size per group", container=nb )
-      Sz.pos<- glayout(container=Sz)
-      Sz.pos[1,1]<- glabel("n1=")
-      Sz.pos[1,2]<-ng1<-gedit("4")
-      Sz.pos[2,1]<- glabel("n2=")
-      Sz.pos[2,2]<-ng2<-gedit("4")
-      cal<-gbutton("Calculate", container=nb, handler = up.size)
-      if(Targeted){gch<- gcheckbox("Plot proportion of significant metabolites", container= nb, handler = up.size)}
-      else{gch<- gcheckbox("Plot proportion of significant bins", container= nb, handler = up.size)}
-      dis<- gcheckbox("Save results in R directory", container= nb, handler=up.size)
-      gseparator()
-      fin<- gframe("", container=nb )
-      fin.stat<- glayout(container=fin)
-      fin.stat[24,1]<-glabel("MetSizeR status:", handler=function(h,...){enabled(sampleSize)<-FALSE})
-      fin.stat[25,1,anchor=c(-1,-1)]<-sampleSize<- gedit("is idle...")  
-      enabled(fin)<-FALSE
-      add(pg, ggraphics(dpi = 100, ps = 9))
-    }
-  }## end ssize.est function
-  
-  ####################################################################################
-  # MetSizeR GUI component                                                              # 
-  ####################################################################################
-  cat("Welcome to MetSizeR!! \n")
-  
-  MetSizeR.menu<- gwindow("MetSizeR",container=TRUE)
-  gimage(paste(file.path(path.package(package="MetSizeR")[1]),"/extdata/cover.jpg",sep=""),container= MetSizeR.menu)
-  #addHandlerDestroy(MetSizeR.menu, handler=function(h,...){dispose(ssize.est)})
-  ss.est<- gwindow(visible=FALSE)
-  list_all = list(
-    File=list(
-      open = list(handler=pilot.open,icon="open"), 
-      covariates = list(handler=cov.open,icon="plot"),
-      demo_nmr_pilot_data = list(handler=demo.pilot.open, icon="newplot"),
-      quit = list(handler=function(h,..){
-        cat("you are quitting MetSizeR... \n")
-        cat("byebye \n")
-        dispose(MetSizeR.menu)
-      }, icon="close")), 
-    Sample_size = list(
-      pilot_data = list(
-        NMR_data = list(handler=function(h,..)
-        {
-          if(length(pilot)==0)
-          {
-            gmessage("Please upload the data first",icon="info")
-          }else{
-            ssize.est(inputData=pilot, inputCov=covars)
-          }
-        }),         
-        Targeted_data = list(handler=function(h,..)
-        {
-          if(length(pilot)==0)
-          {
-            gmessage("Please upload the data first",icon="info")
-          }else{
-            #pilot<-log(pilot)
-            ssize.est(inputData=pilot, inputCov=covars, Targeted=TRUE)
-          }
-        })),
-      no_pilot_data  = list(
-        NMR_analysis = list(handler=function(h,..)
-        {
-          pilot=NULL; covars=NULL
-          ssize.est(inputData=pilot, inputCov=covars)
-        }),
-        Targeted_analysis = list(handler=function(h,..)
-        {
-          pilot=NULL; covars=NULL
-          ssize.est(inputData=pilot, inputCov=covars, Targeted=TRUE)
-        }))),
-    Help = list(
-      manual = list(handler=function(h,..)
-      { print(help(MetSizeR))},icon="info")
-      ))
-  menu<- gmenu(list_all, container = MetSizeR.menu)
+  shiny::shinyApp(ui, server)
 }

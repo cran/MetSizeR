@@ -1,15 +1,46 @@
 Package: MetSizeR
-Type: Package
-Title: GUI Tool for Estimating Sample Sizes for Metabolomic Experiments
-Version: 1.1
-Date: 2013-09-08
-Author: Gift Nyamundanda, Isobel Claire Gormley, Yue Fan, William M Gallagher, Lorraine Brennan
-Maintainer: Gift Nyamundanda <gnyamundanda@gmail.com>
-Description: An easy to use Graphical User Interface for estimating sample sizes required for metabolomic experiments even when experimental pilot data is not available.
-Depends: mvtnorm,MetabolAnalyze,cairoDevice, gWidgets, gWidgetsRGtk2
-License: GPL (>= 2)
-LazyLoad: yes
-Packaged: 2014-12-08 12:21:11 UTC; Gift
+Title: A Shiny App for Sample Size Estimation in Metabolomic
+        Experiments
+Version: 2.0.0
+Date: 2021-08-20
+Authors@R: 
+    c(person(given = "Kate",
+             family = "Finucane",
+             role = c("aut", "cre"),
+             email = "kate.finucane@ucdconnect.ie"),
+      person(given = "Gift",
+             family = "Nyamundanda",
+             role = c("aut")),
+      person(given = "Isobel Claire",
+             family = "Gormley",
+             role = c("aut")),
+      person(given = "Yue",
+             family = "Fan",
+             role = c("aut")),
+      person(given = "William M",
+             family = "Gallagher",
+             role = c("aut")),
+      person(given = "Lorraine",
+             family = "Brennan",
+             role = c("aut")))
+Description: Provides a Shiny application to estimate the sample size required 
+    for a metabolomic experiment to achieve a desired statistical power. 
+    Estimation is possible with or without available data from a pilot study. 
+License: GPL (>= 3)
+Encoding: UTF-8
+RoxygenNote: 7.1.1
+Imports: dplyr, ggplot2, MetabolAnalyze, Rfast, shiny, shinythemes,
+        stats, tools, utils, vroom
+Suggests: rmarkdown, knitr
+VignetteBuilder: knitr
 NeedsCompilation: no
+Packaged: 2021-08-19 23:41:14 UTC; KateF
+Author: Kate Finucane [aut, cre],
+  Gift Nyamundanda [aut],
+  Isobel Claire Gormley [aut],
+  Yue Fan [aut],
+  William M Gallagher [aut],
+  Lorraine Brennan [aut]
+Maintainer: Kate Finucane <kate.finucane@ucdconnect.ie>
 Repository: CRAN
-Date/Publication: 2014-12-08 22:15:50
+Date/Publication: 2021-08-20 13:20:02 UTC
